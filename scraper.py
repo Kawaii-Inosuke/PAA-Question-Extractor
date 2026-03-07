@@ -248,10 +248,18 @@ async def scrape_paa(keyword: str, region: str = "us") -> dict:
     config = REGION_CONFIG[region]
     headless = os.getenv("HEADLESS", "true").lower() == "true"
 
-    logger.info(f"Scraping PAA for '{keyword}' in region '{region}' (headless={headless})")
+    # Support multiple proxies via PROXY_URLS (comma-separated) or single PROXY_URL
+    proxy_urls_str = os.getenv("PROXY_URLS", "") or os.getenv("PROXY_URL", "")
+    proxy_list = [u.strip() for u in proxy_urls_str.split(",") if u.strip()] if proxy_urls_str else []
+    
+    # Pick a random proxy from the list for this attempt
+    proxy = None
+    if proxy_list:
+        chosen = random.choice(proxy_list)
+        proxy = {"server": chosen}
+        logger.info(f"  Using proxy: {chosen.split('@')[-1] if '@' in chosen else chosen}")
 
-    proxy_url = os.getenv("PROXY_URL")
-    proxy = {"server": proxy_url} if proxy_url else None
+    logger.info(f"Scraping PAA for '{keyword}' in region '{region}' (headless={headless})")
 
     browser = None
     try:
@@ -333,6 +341,16 @@ async def scrape_paa(keyword: str, region: str = "us") -> dict:
                     logger.info("  Already on search results page, skipping typing.")
                     typed = True
                 else:
+                    # Diagnose what Google is showing
+                    try:
+                        page_title = await page.title()
+                        page_url = page.url
+                        body_text = await page.inner_text("body")
+                        snippet = body_text[:300].replace('\n', ' ')
+                        logger.error(f"  DIAGNOSTIC — Page title: '{page_title}', URL: '{page_url}'")
+                        logger.error(f"  DIAGNOSTIC — Body snippet: {snippet}")
+                    except Exception:
+                        pass
                     await browser.close()
                     return {"keyword": keyword, "region": region, "error": "Could not find Google search box (Blocked or changed layout)"}
 
