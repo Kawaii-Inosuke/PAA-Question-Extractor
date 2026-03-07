@@ -416,15 +416,29 @@ async def scrape_multiple(keywords: list[str], region: str = "us") -> list[dict]
 
         logger.info(f"Processing keyword {i + 1}/{len(keywords)}: '{keyword}'")
 
-        try:
-            result = await asyncio.wait_for(
-                scrape_paa(keyword, region),
-                timeout=90,
-            )
-        except asyncio.TimeoutError:
-            result = {"keyword": keyword, "region": region, "error": "Timed out after 90 seconds"}
-        except Exception as e:
-            result = {"keyword": keyword, "region": region, "error": str(e)}
+        max_retries = 2
+        result = None
+
+        for attempt in range(max_retries + 1):
+            if attempt > 0:
+                logger.info(f"  Retry {attempt}/{max_retries} for '{keyword}'...")
+                await asyncio.sleep(random.uniform(2.0, 5.0))
+                
+            try:
+                result = await asyncio.wait_for(
+                    scrape_paa(keyword, region),
+                    timeout=90,
+                )
+            except asyncio.TimeoutError:
+                result = {"keyword": keyword, "region": region, "error": "Timed out after 90 seconds"}
+            except Exception as e:
+                result = {"keyword": keyword, "region": region, "error": str(e)}
+
+            # If we got at least 1 question, break out of retry loop
+            if result and result.get("count", 0) > 0:
+                break
+                
+            logger.warning(f"  Got 0 questions or error for '{keyword}'.")
 
         results.append(result)
 
