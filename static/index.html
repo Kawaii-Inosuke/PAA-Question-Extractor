@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PAA Extractor — People Also Ask Questions</title>
+    <meta name="description" content="Extract People Also Ask questions from Google search results for SEO research.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo-area">
+                <svg class="logo-icon" width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="28" height="28" rx="6" fill="#2563EB"/>
+                    <text x="14" y="19" text-anchor="middle" fill="white" font-family="Inter" font-weight="700" font-size="14">?</text>
+                </svg>
+                <h1>PAA Extractor</h1>
+            </div>
+            <p class="subtitle">Extract People Also Ask questions from Google</p>
+        </header>
+
+        <!-- Input Form -->
+        <form id="paaForm" class="form-card">
+            <div class="form-group">
+                <label for="keywords">Keywords</label>
+                <textarea 
+                    id="keywords" 
+                    name="keywords" 
+                    placeholder="Enter keywords separated by commas&#10;e.g. content marketing, seo tips, digital marketing"
+                    rows="3"
+                    required
+                ></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group form-group-region">
+                    <label for="region">Region</label>
+                    <select id="region" name="region">
+                        <option value="us">🇺🇸 United States</option>
+                        <option value="india">🇮🇳 India</option>
+                    </select>
+                </div>
+
+                <button type="submit" id="submitBtn" class="btn-primary">
+                    <span class="btn-text">Extract Questions</span>
+                    <span class="btn-loading" style="display: none;">
+                        <svg class="spinner" width="20" height="20" viewBox="0 0 20 20">
+                            <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="50" stroke-linecap="round"/>
+                        </svg>
+                        Extracting...
+                    </span>
+                </button>
+            </div>
+
+            <p class="form-hint">Each keyword will be searched separately. Extraction takes about 15–30 seconds per keyword.</p>
+        </form>
+
+        <!-- Results Area -->
+        <div id="resultsArea" class="results-area" style="display: none;">
+            <div class="results-header">
+                <h2>Results</h2>
+                <button id="copyAllBtn" class="btn-secondary" title="Copy all questions">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="5" y="5" width="9" height="9" rx="1.5"/>
+                        <path d="M3 11V3a1.5 1.5 0 011.5-1.5H11"/>
+                    </svg>
+                    Copy All
+                </button>
+            </div>
+            <div id="resultsContainer"></div>
+        </div>
+
+        <!-- Error Area -->
+        <div id="errorArea" class="error-area" style="display: none;">
+            <div class="error-card">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#DC2626" stroke-width="2">
+                    <circle cx="10" cy="10" r="8"/>
+                    <line x1="10" y1="6" x2="10" y2="11"/>
+                    <circle cx="10" cy="14" r="0.5" fill="#DC2626"/>
+                </svg>
+                <p id="errorMessage"></p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>API Endpoint: <code>POST /api/paa</code> — Use with n8n HTTP Request node</p>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
