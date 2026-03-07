@@ -279,12 +279,13 @@ async def scrape_paa(keyword: str, region: str = "us") -> dict:
             )
 
             page = await context.new_page()
+            page.set_default_timeout(60000)
 
             # Apply stealth patches
             await _apply_stealth(page)
 
-            # Navigate to Google
-            await page.goto(config["google_url"], wait_until="domcontentloaded")
+            # Navigate to Google - Use "commit" and higher timeout for slow proxies
+            await page.goto(config["google_url"], wait_until="commit", timeout=60000)
             await _random_delay(2.0, 4.0)
 
             # Handle cookie consent if present
