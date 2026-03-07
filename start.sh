@@ -10,6 +10,12 @@ echo "  PAA Extractor — Starting Up"
 echo "==============================="
 echo ""
 
+# Kill any existing instances first
+echo "[0] Cleaning up old processes..."
+pkill -f "uvicorn main:app" 2>/dev/null
+pkill -f "cloudflared tunnel" 2>/dev/null
+sleep 1
+
 # 1. Activate virtual environment
 source venv/bin/activate
 
