@@ -297,13 +297,30 @@ async def scrape_paa(keyword: str, region: str = "us") -> dict:
             except Exception:
                 pass
 
-            # Find the search box and type the keyword
-            search_selectors = ['textarea[name="q"]', 'input[name="q"]']
+            # Check for CAPTCHA or "Unusual traffic"
+            content = await page.content()
+            captcha_indicators = [
+                "not a robot", "unusual traffic", "challenge", "captcha", 
+                "validate your request", "automated requests"
+            ]
+            if any(indicator in content.lower() for indicator in captcha_indicators):
+                await browser.close()
+                return {"keyword": keyword, "region": region, "error": "CAPTCHA or bot detection triggered by Google"}
+
+            # Find the search box and type the keyword - added more selectors for resilience
+            search_selectors = [
+                'textarea[name="q"]', 
+                'input[name="q"]',
+                'textarea[title="Search"]',
+                'input[title="Search"]',
+                '.gLFyf' # Common search class
+            ]
             typed = False
             for sel in search_selectors:
                 try:
                     el = page.locator(sel).first
-                    if await el.count() > 0:
+                    if await el.count() > 0 and await el.is_visible():
+                        await el.click() # Click first to focus
                         await _human_type(page, sel, keyword)
                         typed = True
                         break
@@ -311,8 +328,13 @@ async def scrape_paa(keyword: str, region: str = "us") -> dict:
                     continue
 
             if not typed:
-                await browser.close()
-                return {"keyword": keyword, "region": region, "error": "Could not find Google search box"}
+                # Last resort check: if we are at the search results already (maybe from an earlier redirect)
+                if "search?" in page.url:
+                    logger.info("  Already on search results page, skipping typing.")
+                    typed = True
+                else:
+                    await browser.close()
+                    return {"keyword": keyword, "region": region, "error": "Could not find Google search box (Blocked or changed layout)"}
 
             # Press Enter to search
             await page.keyboard.press("Enter")
@@ -426,16 +448,18 @@ async def scrape_multiple(keywords: list[str], region: str = "us") -> list[dict]
 
         for attempt in range(max_retries + 1):
             if attempt > 0:
-                logger.info(f"  Retry {attempt}/{max_retries} for '{keyword}'...")
-                await asyncio.sleep(random.uniform(2.0, 5.0))
+                # If last error was a CAPTCHA, sleep longer
+                wait_time = random.uniform(5.0, 10.0) if "CAPTCHA" in str(result.get("error", "")) else random.uniform(2.0, 5.0)
+                logger.info(f"  Retry {attempt}/{max_retries} for '{keyword}' (Waiting {wait_time:.1f}s)...")
+                await asyncio.sleep(wait_time)
                 
             try:
                 result = await asyncio.wait_for(
                     scrape_paa(keyword, region),
-                    timeout=90,
+                    timeout=120, # Increased internal timeout
                 )
             except asyncio.TimeoutError:
-                result = {"keyword": keyword, "region": region, "error": "Timed out after 90 seconds"}
+                result = {"keyword": keyword, "region": region, "error": "Timed out after 120 seconds"}
             except Exception as e:
                 result = {"keyword": keyword, "region": region, "error": str(e)}
 
@@ -443,7 +467,7 @@ async def scrape_multiple(keywords: list[str], region: str = "us") -> list[dict]
             if result and result.get("count", 0) > 0:
                 break
                 
-            logger.warning(f"  Got 0 questions or error for '{keyword}'.")
+            logger.warning(f"  Attempt {attempt + 1} failed for '{keyword}': {result.get('error', '0 questions found')}")
 
         results.append(result)
 
