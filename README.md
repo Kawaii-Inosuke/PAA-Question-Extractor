@@ -77,6 +77,7 @@ Returns `{"status": "ok"}` — useful for monitoring.
 | `GOOGLE_PROJECT_ID` | | Your Google Cloud project ID |
 | `GOOGLE_CLIENT_EMAIL` | | Service account email address |
 | `GOOGLE_PRIVATE_KEY` | | Service account private key string |
+| `PROXY_URL` | | Optional: Proxy gateway URL (e.g., http://user:pass@host:port) |
 
 To configure Google Sheets automatically saving:
 1. Create a `.env` file in the root directory.

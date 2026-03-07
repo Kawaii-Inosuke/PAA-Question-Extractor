@@ -250,11 +250,15 @@ async def scrape_paa(keyword: str, region: str = "us") -> dict:
 
     logger.info(f"Scraping PAA for '{keyword}' in region '{region}' (headless={headless})")
 
+    proxy_url = os.getenv("PROXY_URL")
+    proxy = {"server": proxy_url} if proxy_url else None
+
     browser = None
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(
                 headless=headless,
+                proxy=proxy,
                 args=[
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
