@@ -1,108 +1,110 @@
-# PAA Extractor — Quick Start Guide
+# 🔍 PAA Extractor — User Guide
 
-## How It Works
-
-Your PAA Extractor runs **on your laptop** and uses a **Cloudflare Tunnel** to create a public URL.
-When n8n sends a request to the public URL → Cloudflare routes it to your laptop → your laptop scrapes Google using your home WiFi (residential IP) → results are saved to Google Sheets.
+> **This guide is for non-developers.** Follow each step exactly as written. Just copy-paste the commands!
 
 ---
 
-## One-Time Setup (Already Done)
+## 🟢 How to Start the PAA Extractor (Do This Every Time)
 
-These steps have already been completed:
-- ✅ `cloudflared` installed
-- ✅ Python virtual environment created
-- ✅ All dependencies installed
-- ✅ Google Sheets integration configured
+### Step 1: Open the Terminal
 
----
+- On your keyboard, press **Ctrl + Alt + T** — this opens the Terminal (a black window where you type commands)
 
-## Starting the Server (Every Time)
+### Step 2: Start the server
 
-### Option 1: One-Click Start (Recommended)
+Copy this entire line below and **paste it into the Terminal** (use Ctrl+Shift+V to paste in Terminal), then press **Enter**:
 
-Open a terminal and run:
-
-```bash
-cd "/home/yashodhan/Documents/91NInjas/March 2026/paa draft 2"
-./start.sh
+```
+cd "/home/yashodhan/Documents/91NInjas/March 2026/paa draft 2" && ./start.sh
 ```
 
-This will:
-1. Start the PAA server on `http://localhost:8000`
-2. Create a Cloudflare Tunnel with a public URL (e.g., `https://random-name.trycloudflare.com`)
+### Step 3: Wait for the URL
 
-**Copy the public URL** shown in the terminal and use it in your n8n HTTP Request node.
+After about 10 seconds, you will see something like this in the Terminal:
 
-> **Note:** The public URL changes every time you restart. Update your n8n node with the new URL each time.
-
-### Option 2: Manual Start (If Option 1 Doesn't Work)
-
-**Terminal 1 — Start the server:**
-```bash
-cd "/home/yashodhan/Documents/91NInjas/March 2026/paa draft 2"
-source venv/bin/activate
-HEADLESS=false uvicorn main:app --port 8000
+```
+  ┌─────────────────────────────────────────────────────┐
+  │  COPY THIS URL FOR n8n:                             │
+  │                                                     │
+  │  https://some-random-words.trycloudflare.com/api/paa│
+  │                                                     │
+  └─────────────────────────────────────────────────────┘
 ```
 
-**Terminal 2 — Start the tunnel:**
-```bash
-cloudflared tunnel --url http://localhost:8000
+### Step 4: Copy the URL
+
+- **Select the URL** (the `https://...trycloudflare.com/api/paa` part) with your mouse
+- Press **Ctrl+Shift+C** to copy it
+
+### Step 5: Paste it in n8n
+
+- Open your **n8n workflow**
+- Open the **HTTP Request** node
+- Paste the URL into the **URL field**
+- The body should be:
+```json
+{
+  "keywords": "your keyword here",
+  "region": "us"
+}
+```
+- Click **Execute** to test it!
+
+---
+
+## 🔴 How to Stop the Server
+
+- Go back to the Terminal where the server is running
+- Press **Ctrl + C** on your keyboard
+- The server will shut down
+
+---
+
+## 🌐 How to Use the Web Interface (Instead of n8n)
+
+While the server is running, you can also use it from your browser:
+
+1. Open **Google Chrome** (or any browser)
+2. In the address bar, type: `http://localhost:8000`
+3. Press **Enter**
+4. You will see the PAA Extractor page
+5. Type your keywords, select the region, and click **Extract Questions**
+
+---
+
+## ❓ Common Problems and Solutions
+
+### "Address already in use" error
+
+This means the server is already running. Fix it by running this command first:
+
+```
+pkill -f "uvicorn main:app"
 ```
 
-### Option 3: Backup Tunnel (If Cloudflare Is Blocked)
+Then run the start command again from Step 2.
 
-If `cloudflared` doesn't work on your network, use this SSH-based tunnel instead:
+### "Tunnel took too long" or no URL appears
 
-**Terminal 2 — SSH tunnel:**
-```bash
-ssh -R 80:localhost:8000 nokey@localhost.run
-```
+Your WiFi might be blocking the tunnel. Try these fixes:
+1. **Switch to a different WiFi** (like your phone hotspot) and try again
+2. If that doesn't work, you can still use the tool **locally** by opening `http://localhost:8000` in your browser — it works without the tunnel!
 
-This will also give you a public URL.
+### Browser opens during scraping
 
----
+This is normal! The scraper opens a hidden browser to visit Google. It will close automatically after extracting the questions.
 
-## Stopping the Server
+### No questions found
 
-Press **Ctrl+C** in the terminal where `start.sh` is running. This stops both the server and tunnel.
-
----
-
-## Using with n8n
-
-1. Start the server using one of the options above
-2. Copy the **public URL** from the terminal output
-3. In your n8n workflow, set the **HTTP Request** node:
-   - **Method:** `POST`
-   - **URL:** `https://your-tunnel-url.trycloudflare.com/api/paa`
-   - **Body Content Type:** `JSON`
-   - **Body:**
-     ```json
-     {
-       "keywords": "your keyword here",
-       "region": "us"
-     }
-     ```
-4. Run the workflow — questions will be scraped and saved to Google Sheets automatically!
+Sometimes Google doesn't show PAA questions for certain keywords. The scraper will automatically retry up to 3 times. If it still shows 0, try a different keyword.
 
 ---
 
-## Using the Web Interface Directly
+## 📋 Quick Reference
 
-After starting the server, open your browser and go to:
-- **Local:** [http://localhost:8000](http://localhost:8000)
-- **Public:** `https://your-tunnel-url.trycloudflare.com`
-
-Type your keywords, select the region, and click **Extract Questions**.
-
----
-
-## Troubleshooting
-
-| Problem | Solution |
-|---------|----------|
-| "Address already in use" | Run `pkill -f "uvicorn main:app"` then try again |
-| Cloudflare tunnel won't connect | Use Option 3 (SSH tunnel) instead |
-| "Could not find Google search box" | Google showed a CAPTCHA. Try again in a minute |
-| Browser doesn't open during scrape | Set `HEADLESS=true` in the start command if you don't want to see the browser |
+| What you want to do | What to do |
+|---------------------|------------|
+| **Start the server** | Open Terminal → paste: `cd "/home/yashodhan/Documents/91NInjas/March 2026/paa draft 2" && ./start.sh` |
+| **Stop the server** | Press `Ctrl + C` in the Terminal |
+| **Use in browser** | Go to `http://localhost:8000` |
+| **Fix "address in use"** | Run: `pkill -f "uvicorn main:app"` then start again |
