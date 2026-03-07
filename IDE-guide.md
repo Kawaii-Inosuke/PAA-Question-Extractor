@@ -1,157 +1,190 @@
 # 🛠️ PAA Extractor — New System Setup Guide
 
-> **Follow this guide when setting up the PAA Extractor on a brand new computer.**
+> **Follow this guide when setting up the PAA Extractor on a brand new computer.**  
 > You only need to do this ONCE per computer. After setup, use `guide.md` for daily usage.
 
 ---
 
-## ✅ Prerequisites (Must Be Installed First)
-
-Before you begin, make sure these are installed on your system:
+## ✅ Prerequisites (Install These First)
 
 ### 1. Python 3.10 or higher
 
-Check if Python is installed:
-```
-python3 --version
-```
+**Windows:**
+1. Go to https://www.python.org/downloads/
+2. Click the big yellow **"Download Python"** button
+3. Run the installer
+4. ⚠️ **IMPORTANT:** Check the box that says **"Add Python to PATH"** at the bottom of the installer
+5. Click **Install Now**
 
-If NOT installed, run:
+**Linux:**
 ```
 sudo apt update && sudo apt install python3 python3-pip python3-venv -y
 ```
 
+To verify it's installed, open Command Prompt / Terminal and type:
+```
+python --version
+```
+
+---
+
 ### 2. Git
 
-Check if Git is installed:
-```
-git --version
-```
+**Windows:**
+1. Go to https://git-scm.com/download/win
+2. Download and run the installer
+3. Click **Next** on every screen (use all default settings)
 
-If NOT installed, run:
+**Linux:**
 ```
 sudo apt install git -y
 ```
 
-### 3. Google Chrome (for Playwright)
+To verify: `git --version`
 
-Check if Chrome is installed:
-```
-google-chrome --version
-```
+---
 
-If NOT installed, download it from: https://www.google.com/chrome/
+### 3. Google Chrome
+
+Download from https://www.google.com/chrome/ if not already installed.
+
+---
+
+### 4. Cloudflare Tunnel (cloudflared)
+
+**Windows:**
+1. Go to https://github.com/cloudflare/cloudflared/releases/latest
+2. Download the file named `cloudflared-windows-amd64.msi`
+3. Double-click it to install
+4. Click **Next** on every screen
+
+**Linux:**
+```
+curl -L --output /tmp/cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i /tmp/cloudflared.deb
+```
 
 ---
 
 ## 📥 Step-by-Step Setup
 
-### Step 1: Clone the repository
+### Step 1: Open Command Prompt / Terminal
 
-Open Terminal (**Ctrl + Alt + T**) and run:
+- **Windows:** Press **Windows key**, type `cmd`, click **Command Prompt**
+- **Linux:** Press **Ctrl + Alt + T**
 
+### Step 2: Go to the folder where you want to save the project
+
+**Windows:**
+```
+cd C:\Users\YourName\Documents
+```
+
+**Linux:**
 ```
 cd ~/Documents
+```
+
+### Step 3: Clone (download) the project
+
+```
 git clone https://github.com/Kawaii-Inosuke/PAA-Question-Extractor.git
+```
+
+### Step 4: Go into the project folder
+
+```
 cd PAA-Question-Extractor
 ```
 
-### Step 2: Create a Python virtual environment
+### Step 5: Create a virtual environment
 
+**Windows:**
+```
+python -m venv venv
+```
+
+**Linux:**
 ```
 python3 -m venv venv
 ```
 
-### Step 3: Activate the virtual environment
+### Step 6: Activate the virtual environment
 
+**Windows:**
+```
+venv\Scripts\activate
+```
+
+**Linux:**
 ```
 source venv/bin/activate
 ```
 
-> After this, you should see `(venv)` at the beginning of your terminal line
+> ✅ You should now see `(venv)` at the beginning of your command line. This means it's working.
 
-### Step 4: Install Python dependencies
+### Step 7: Install dependencies
 
 ```
 pip install -r requirements.txt
 ```
 
-### Step 5: Install Playwright browser
+### Step 8: Install the browser for scraping
 
 ```
 playwright install chromium
 ```
 
-### Step 6: Install Cloudflare Tunnel
+### Step 9: Create the `.env` file
 
+This file contains your secret Google Sheets credentials.
+
+**Windows (use Notepad):**
 ```
-curl -L --output /tmp/cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-sudo dpkg -i /tmp/cloudflared.deb
+notepad .env
 ```
 
-> It will ask for your computer password. Type it and press Enter (the password won't be visible while typing — this is normal).
-
-### Step 7: Create the `.env` file
-
-You need to create a file called `.env` in the project folder with your Google Sheets credentials. Run this command:
-
+**Linux:**
 ```
 nano .env
 ```
 
-Then paste the following content **(replace the placeholder values with your actual credentials)**:
+Paste this content into the file (replace placeholder values with your real credentials):
 
 ```
 GOOGLE_SHEET_ID=your_google_sheet_id_here
 GOOGLE_PROJECT_ID=your_google_project_id_here
 GOOGLE_CLIENT_EMAIL=your_service_account_email_here
-GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n"
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_KEY_HERE\n-----END PRIVATE KEY-----\n"
 ```
 
-To save the file: press **Ctrl + O**, then **Enter**, then **Ctrl + X** to exit.
+**Save the file:**
+- **Notepad (Windows):** Ctrl + S, then close
+- **nano (Linux):** Ctrl + O → Enter → Ctrl + X
 
-> **Where to get these values:** Ask the project owner for the Google Sheets service account credentials, or check the original `.env` file on the existing setup.
+> 💡 **Where to get these values?** Ask the project owner for the Google Sheets service account credentials.
 
-### Step 8: Make the startup script executable
+### Step 10: Make the startup script runnable (Linux only)
 
 ```
 chmod +x start.sh
 ```
 
-### Step 9: Update the path in start.sh and guide.md
-
-The `guide.md` and `start.sh` files contain a hardcoded path. If you cloned the repo to a different location, update the path in `guide.md` to match your new location.
-
 ---
 
-## 🎉 Setup Complete!
+## 🎉 Setup Complete! Test It Now
 
-You can now start the server by running:
+**Windows:**
+```
+start.bat
+```
 
+**Linux:**
 ```
 ./start.sh
 ```
 
-Refer to `guide.md` for daily usage instructions.
-
----
-
-## 📋 Quick Setup Checklist
-
-Copy-paste ALL these commands in order to set up everything at once (after cloning):
-
-```bash
-cd ~/Documents/PAA-Question-Extractor
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-playwright install chromium
-curl -L --output /tmp/cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-sudo dpkg -i /tmp/cloudflared.deb
-chmod +x start.sh
-```
-
-Then create the `.env` file (Step 7 above) and you're ready to go!
+If you see a URL like `https://xxxx.trycloudflare.com` — it's working! 🎉
 
 ---
 
@@ -161,12 +194,44 @@ If you're using **VS Code** or **Cursor** as your code editor:
 
 1. Open the editor
 2. Click **File → Open Folder**
-3. Navigate to the project folder (`PAA-Question-Extractor`) and click **Open**
-4. Open the built-in terminal: press **Ctrl + `** (backtick key, below Escape)
+3. Navigate to the `PAA-Question-Extractor` folder and click **Open**
+4. Open the built-in terminal:
+   - **Windows / Linux:** Press **Ctrl + `** (backtick key, below Escape)
 5. In the terminal, run:
+
+**Windows:**
+```
+venv\Scripts\activate
+start.bat
+```
+
+**Linux:**
 ```
 source venv/bin/activate
 ./start.sh
 ```
 
-That's it! The server will start right inside your editor.
+---
+
+## 📋 Quick Setup Checklist
+
+### Windows (Run all these commands in order after cloning):
+```
+cd PAA-Question-Extractor
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+playwright install chromium
+```
+Then create the `.env` file (Step 9) and run `start.bat`
+
+### Linux (Run all these commands in order after cloning):
+```
+cd PAA-Question-Extractor
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+playwright install chromium
+chmod +x start.sh
+```
+Then create the `.env` file (Step 9) and run `./start.sh`
