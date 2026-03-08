@@ -47,8 +47,13 @@ class PAARequest(BaseModel):
     @classmethod
     def region_valid(cls, v):
         v = v.lower().strip()
+        if v == "in":
+            v = "india"
+        elif v == "usa":
+            v = "us"
+            
         if v not in ("us", "india"):
-            raise ValueError("Region must be 'us' or 'india'")
+            raise ValueError("Region must be 'us', 'usa', 'india', or 'in'")
         return v
 
 

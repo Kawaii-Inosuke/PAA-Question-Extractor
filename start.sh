@@ -14,7 +14,7 @@ echo ""
 # Kill any existing instances first
 echo "  [0] Cleaning up old processes..."
 pkill -f "uvicorn main:app" 2>/dev/null
-pkill -f "cloudflared tunnel" 2>/dev/null
+pkill -f "ngrok" 2>/dev/null
 sleep 1
 
 # 1. Activate virtual environment
@@ -35,24 +35,26 @@ fi
 echo "  ✓ Server running (PID: $SERVER_PID)"
 echo ""
 
-# 3. Start Cloudflare Tunnel and capture the URL
-echo "  [2/2] Creating public tunnel..."
-TUNNEL_LOG="/tmp/cloudflare_tunnel.log"
-cloudflared tunnel --url http://localhost:8000 > "$TUNNEL_LOG" 2>&1 &
+# 3. Start ngrok and capture the URL
+echo "  [2/2] Creating public tunnel (using ngrok)..."
+TUNNEL_LOG="/tmp/ngrok.log"
+# Start ngrok in background, logging to file
+ngrok http 8000 --log=stdout > "$TUNNEL_LOG" 2>&1 &
 TUNNEL_PID=$!
 
 # Wait and extract the tunnel URL
 TUNNEL_URL=""
 for i in $(seq 1 15); do
     sleep 1
-    TUNNEL_URL=$(grep -oP 'https://[a-zA-Z0-9-]+\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | head -1)
+    # Ngrok logs the URL with "url=https://..."
+    TUNNEL_URL=$(grep -oP 'url=https://[a-zA-Z0-9-]+\.ngrok-free\.(app|dev)' "$TUNNEL_LOG" 2>/dev/null | head -1 | cut -d= -f2)
     if [ -n "$TUNNEL_URL" ]; then
         break
     fi
 done
 
 if [ -z "$TUNNEL_URL" ]; then
-    echo "  ⚠ Tunnel took too long. Check /tmp/cloudflare_tunnel.log"
+    echo "  ⚠ Tunnel took too long to start. Check /tmp/ngrok.log"
     echo "  Your server is still running locally at: http://localhost:8000"
     echo ""
 else
@@ -70,6 +72,8 @@ else
     echo "  │                                                     │"
     echo "  │  ${TUNNEL_URL}/api/paa"
     echo "  │                                                     │"
+    echo "  │  NOTE: Ngrok provides a permanent URL!              │"
+    echo "  │  You only need to configure this in n8n once.       │"
     echo "  └─────────────────────────────────────────────────────┘"
     echo ""
     echo "  Public URL: $TUNNEL_URL"

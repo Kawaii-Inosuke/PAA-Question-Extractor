@@ -11,7 +11,7 @@ echo.
 REM Kill any existing instances
 echo   [0] Cleaning up old processes...
 taskkill /F /IM "uvicorn.exe" >nul 2>&1
-taskkill /F /IM "cloudflared.exe" >nul 2>&1
+taskkill /F /IM "ngrok.exe" >nul 2>&1
 timeout /t 1 >nul
 
 REM Activate virtual environment
@@ -24,21 +24,24 @@ timeout /t 3 >nul
 echo   Server started!
 echo.
 
-REM Start Cloudflare Tunnel and log to file
-echo   [2/2] Creating public tunnel...
-echo   (Wait 10 seconds for the URL to appear)
+REM Start ngrok and look for URL
+echo   [2/2] Creating public tunnel (using ngrok)...
+echo   (Wait for the ngrok-free.app URL to appear)
 echo.
 
-cloudflared tunnel --url http://localhost:8000 2>&1 | findstr /C:"trycloudflare.com"
+ngrok http 8000
 
 echo.
 echo   =======================================
-echo     Look for the trycloudflare.com URL
-echo     above and copy it for n8n!
+echo     Look for the ngrok-free.app URL above
+echo     and copy it for n8n!
 echo   =======================================
 echo.
 echo   Add /api/paa at the end of the URL
-echo   Example: https://xxxxx.trycloudflare.com/api/paa
+echo   Example: https://your-url.ngrok-free.app/api/paa
+echo.
+echo   NOTE: Ngrok provides a permanent URL!
+echo   You only need to configure this in n8n once.
 echo.
 echo   Press Ctrl+C to stop the tunnel.
 echo   Close this window to stop everything.
