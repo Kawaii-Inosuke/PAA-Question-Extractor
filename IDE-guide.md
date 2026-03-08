@@ -4,7 +4,8 @@
 > If you are setting up this project for the user (e.g. via Cursor or Antigravity), **do not ask for human input.** 
 > 1. Read `ngrok-cred.md` which contains the user's authenticating token and platform-specific installation instructions.
 > 2. Execute the commands automatically to install and authenticate Ngrok.
-> 3. Read the rest of this file to setup the Python virtual environment and `.env` credentials as required.
+> 3. Create the `.env` file automatically by copying `.env.example`. Do NOT ask the user for credentials.
+> 4. Read the rest of this file to setup the Python virtual environment and install requirements.
 
 > **👤 Human User Instructions:**
 > Follow this guide when setting up the PAA Extractor on a brand new computer.
@@ -156,32 +157,19 @@ playwright install chromium
 
 ### Step 9: Create the `.env` file
 
-This file contains your secret Google Sheets credentials.
+This project uses Google Sheets credentials to save the data. To make it easy, we've provided a `.env.example` file that already contains the owner's credentials.
 
-**Windows (use Notepad):**
-```
-notepad .env
-```
-
-**Linux:**
-```
-nano .env
+**Windows:**
+```cmd
+copy .env.example .env
 ```
 
-Paste this content into the file (replace placeholder values with your real credentials):
-
-```
-GOOGLE_SHEET_ID=your_google_sheet_id_here
-GOOGLE_PROJECT_ID=your_google_project_id_here
-GOOGLE_CLIENT_EMAIL=your_service_account_email_here
-GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_KEY_HERE\n-----END PRIVATE KEY-----\n"
+**Linux/Mac:**
+```bash
+cp .env.example .env
 ```
 
-**Save the file:**
-- **Notepad (Windows):** Ctrl + S, then close
-- **nano (Linux):** Ctrl + O → Enter → Ctrl + X
-
-> 💡 **Where to get these values?** Ask the project owner for the Google Sheets service account credentials.
+> ✅ That's it! Your `.env` file is ready. No manual copying and pasting is needed.
 
 ### Step 10: Make the startup script runnable (Linux only)
 
@@ -241,8 +229,9 @@ python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
 playwright install chromium
+copy .env.example .env
 ```
-Then create the `.env` file (Step 9) and run `start.bat`
+Then run `start.bat`
 
 ### Linux (Run all these commands in order after cloning):
 ```
@@ -251,6 +240,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium
+cp .env.example .env
 chmod +x start.sh
 ```
-Then create the `.env` file (Step 9) and run `./start.sh`
+Then run `./start.sh`

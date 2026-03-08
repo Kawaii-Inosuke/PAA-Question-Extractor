@@ -4,7 +4,7 @@
 > If you are an AI assistant setting this project up for the user, your goal is to install Ngrok and authenticate it using the token below. 
 
 ## The Authtoken
-**Token:** `3AfM9IItLy91SFx6HdUut5Z1GXW_52mTQaP9WbU1VV7Nch37D`
+**Token:** `YOUR_NGROK_TOKEN_HERE`
 
 ---
 
@@ -31,7 +31,7 @@ sudo apt install ngrok -y
 Once `ngrok` is recognized in the terminal, run the following command to link the computer to the account:
 
 ```bash
-ngrok config add-authtoken 3AfM9IItLy91SFx6HdUut5Z1GXW_52mTQaP9WbU1VV7Nch37D
+ngrok config add-authtoken YOUR_NGROK_TOKEN_HERE
 ```
 
 ### 3. Next Steps
