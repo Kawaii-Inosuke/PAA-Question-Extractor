@@ -6,6 +6,7 @@ Extracts 12+ PAA questions from Google search results.
 import asyncio
 import os
 import random
+import re
 import logging
 
 from playwright.async_api import async_playwright
@@ -118,22 +119,81 @@ def _clean_question(text: str) -> str | None:
     if not text:
         return None
 
+    lower = text.lower()
+
+    # --- PHASE 1: Reject obvious junk before any processing ---
+
     # Skip known non-question content
     junk_phrases = [
         "can't generate", "ai overview", "try again later",
         "people also ask", "more results", "about featured snippets",
-        "send feedback",
+        "send feedback", "table of contents", "'s post",
     ]
-    lower = text.lower()
     if any(j in lower for j in junk_phrases):
         return None
 
-    # If text contains a '?', extract just the question (first sentence ending with ?)
+    # Reject text with emojis (social media posts / bios)
+    emoji_pattern = re.compile(
+        "[\U0001F300-\U0001FAFF"
+        "\U00002702-\U000027B0"
+        "\U0000FE00-\U0000FE0F"
+        "\U0000200D"
+        "\U000023F0-\U000023FA"
+        "]", flags=re.UNICODE
+    )
+    if emoji_pattern.search(text):
+        return None
+
+    # Reject hashtags (#Author, #Zomato, etc.)
+    if re.search(r"#\w+", text):
+        return None
+
+    # Reject truncated snippets (ending with "..." or "…")
+    stripped = text.rstrip()
+    if stripped.endswith("...") or stripped.endswith("…"):
+        return None
+
+    # Reject text starting with a date (e.g., "May 2021 —", "Jan 2024 —", "Sept 2025 —")
+    if re.match(r"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\w*\.?\s+\d", text, re.IGNORECASE):
+        return None
+
+    # Reject text containing URLs
+    if re.search(r"https?://|www\.", text):
+        return None
+
+    # Reject text with too many special characters
+    special_count = sum(1 for c in text if c in "@#$%^&*{}[]<>~`|\\")
+    if special_count > 2:
+        return None
+
+    # Reject text ending with colon (incomplete phrases like "What takes longer:", "Why these jobs are resilient:")
+    if stripped.endswith(":"):
+        return None
+
+    # Reject FAQ-style content with " * " bullets
+    if " * " in text and "?" in text:
+        return None
+
+    # Reject text starting with "Solved]" or containing bracket junk
+    if re.match(r"^\[?Solved\]", text, re.IGNORECASE):
+        return None
+
+    # Reject "Ask SiteName -" prefixed text
+    if re.match(r"^Ask\s+\w+\s*[-—–]", text, re.IGNORECASE):
+        return None
+
+    # --- PHASE 2: Extract a clean question ---
+
+    # If text contains a '?', extract just the question part (first sentence ending with ?)
     if "?" in text:
         q = text[: text.index("?") + 1].strip()
         # Clean leading junk like bullet points, numbers, or special chars
         while q and not q[0].isalpha():
             q = q[1:].strip()
+        # Re-check: reject if it's a quirky non-PAA question
+        q_lower = q.lower()
+        if _is_non_paa_question(q_lower):
+            return None
         if len(q) >= 15:
             return q
 
@@ -141,7 +201,7 @@ def _clean_question(text: str) -> str | None:
     for sep in [" | ", " - ", " — ", " – "]:
         if sep in text:
             text = text[:text.index(sep)].strip()
-            lower = text.lower()  # re-evaluate
+            lower = text.lower()
 
     # Check if it starts with a question word (sometimes Google omits the ?)
     question_words = [
@@ -150,12 +210,38 @@ def _clean_question(text: str) -> str | None:
         "will", "should", "could", "would",
     ]
     if any(lower.startswith(w + " ") for w in question_words):
-        # Take just the first line / sentence
         first_line = text.split("\n")[0].strip()
+        if _is_non_paa_question(first_line.lower()):
+            return None
         if 15 <= len(first_line) <= 150:
             return first_line
 
     return None
+
+
+def _is_non_paa_question(text_lower: str) -> bool:
+    """Return True if text looks like a non-PAA snippet (headline, life advice, how-to title, etc.)."""
+    # Reject vague/chatty phrases that aren't real PAA questions
+    non_paa_patterns = [
+        r'^how to say\b.*\bin\b',           # "How to say I love you in C++"
+        r'^how to maximize\b',               # "How to maximize your 2 days"
+        r'^how to master\b',                 # "How to Master DSA in 3 Months"
+        r'^how to become\b',                 # "How to become a content writer"
+        r'^how they work\b',                 # "How they work together"
+        r'^why we picked\b',                 # "Why We Picked It"
+        r'^why these\b',                     # "Why these jobs are resilient"
+        r'^top \d+\b',                       # "Top 10 AI companies ranked"
+        r"^when it'?s\b",                    # "When it's Illegal"
+        r'^i plan on\b',                     # "I plan on putting 3 months..."
+        r"^i'm curious\b",                   # "I'm curious, what does..."
+        r'^different types of\b',            # "Different Types Of Writers"
+        r'^types of\b',                      # "Types of Writers"
+        r'^ethics and\b',                    # "Ethics and AI Phone Calls"
+    ]
+    for pattern in non_paa_patterns:
+        if re.match(pattern, text_lower):
+            return True
+    return False
 
 
 async def _extract_paa_questions(page) -> list[str]:
@@ -266,6 +352,7 @@ async def scrape_paa(keyword: str, region: str = "us") -> dict:
         async with async_playwright() as p:
             browser = await p.chromium.launch(
                 headless=headless,
+                channel="chrome",
                 proxy=proxy,
                 args=[
                     "--no-sandbox",
@@ -393,8 +480,8 @@ async def scrape_paa(keyword: str, region: str = "us") -> dict:
 
                 logger.info(f"  Found {new_count} new questions (total: {len(all_questions)})")
 
-                if len(all_questions) >= 12:
-                    logger.info(f"  Reached 12+ questions, stopping.")
+                if len(all_questions) >= 16:
+                    logger.info(f"  Reached 16+ questions, stopping.")
                     break
 
                 # Try clicking to expand more PAA items
@@ -427,8 +514,8 @@ async def scrape_paa(keyword: str, region: str = "us") -> dict:
             return {
                 "keyword": keyword,
                 "region": region,
-                "questions": all_questions[:20],
-                "count": min(len(all_questions), 20),
+                "questions": all_questions[:16],
+                "count": min(len(all_questions), 16),
             }
 
     except asyncio.TimeoutError:
