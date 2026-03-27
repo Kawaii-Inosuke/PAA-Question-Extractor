@@ -67,7 +67,7 @@ async def health():
 async def extract_paa(request: PAARequest):
     """
     Extract PAA questions for one or more keywords.
-    Reuses browser session for batches and targets 16 questions each.
+    Reuses browser session for batches and targets 8 questions each.
     """
     keyword_list = [k.strip() for k in request.keywords.split(",") if k.strip()]
 
@@ -75,7 +75,7 @@ async def extract_paa(request: PAARequest):
         raise HTTPException(status_code=400, detail="No valid keywords provided")
 
     logger.info(f"Received request: {len(keyword_list)} keywords, region={request.region}")
-    logger.info("Target: 16 questions per keyword (Session-only tracking).")
+    logger.info("Target: 8 questions per keyword (Session-only tracking).")
 
     try:
         # Define callback for incremental saving to Google Sheets
@@ -85,13 +85,13 @@ async def extract_paa(request: PAARequest):
                 save_to_sheets([result])
                 logger.info(f"Incrementally saved '{result['keyword']}' to Google Sheets.")
 
-        # Scrape with callback, targeting 16 (handled inside scraper.py)
+        # Scrape with callback, targeting 8 (handled inside scraper.py)
         results = await scrape_multiple_with_callback(keyword_list, request.region, incremental_save)
         
         return {
             "results": results,
             "processed_count": len(results),
-            "target": 16
+            "target": 8
         }
     except Exception as e:
         logger.error(f"Scraping failed: {e}")

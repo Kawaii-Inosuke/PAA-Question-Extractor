@@ -35,7 +35,7 @@ async def main():
         return
 
     logger.info(f"Total keywords to process: {len(keywords)}")
-    logger.info("Target: 16 questions per keyword.")
+    logger.info(f"Target: 8 questions per keyword.")
     logger.info("Tracking: Session-only (no local Excel files).")
     
     # Process all keywords in a single browser session
@@ -66,9 +66,9 @@ async def main():
         from scraper import scrape_multiple_with_callback
         results = await scrape_multiple_with_callback(keywords, region=first_region, callback=save_callback)
         
-        success_count = sum(1 for r in results if r.get('count', 0) >= 16)
+        success_count = sum(1 for r in results if r.get('count', 0) >= 8)
         logger.info(f"\nBatch processing complete!")
-        logger.info(f"Successfully reached 16+ questions for {success_count}/{len(keywords)} keywords.")
+        logger.info(f"Successfully reached 8+ questions for {success_count}/{len(keywords)} keywords.")
         
     except Exception as e:
         logger.error(f"Fatal error during batch extraction: {e}")

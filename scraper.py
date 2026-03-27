@@ -382,8 +382,8 @@ def _scrape_paa_with_driver(driver, keyword: str, region: str = "us", google_url
 
             logger.info(f"  Found {new_count} new questions (total: {len(all_questions)})")
 
-            if len(all_questions) >= 16:
-                logger.info(f"  Reached 16+ questions, stopping.")
+            if len(all_questions) >= 8:
+                logger.info(f"  Reached 8+ questions, stopping.")
                 break
 
             # Try clicking to expand more PAA items
@@ -411,8 +411,8 @@ def _scrape_paa_with_driver(driver, keyword: str, region: str = "us", google_url
         return {
             "keyword": keyword,
             "region": region,
-            "questions": all_questions[:16],
-            "count": min(len(all_questions), 16),
+            "questions": all_questions[:8],
+            "count": min(len(all_questions), 8),
         }
     except Exception as e:
         logger.error(f"Error scraping PAA for '{keyword}': {e}")
