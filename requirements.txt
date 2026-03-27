@@ -1,6 +1,8 @@
 fastapi
 uvicorn[standard]
-playwright
+selenium
+undetected-chromedriver
+webdriver-manager
 python-multipart
 pydantic
 gspread

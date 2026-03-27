@@ -3,3 +3,11 @@ venv/
 __pycache__/
 *.pyc
 .DS_Store
+
+# Logs
+*.log
+
+# Scraper data
+browser_data/
+*.csv
+*.xlsx

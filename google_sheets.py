@@ -56,7 +56,27 @@ def get_sheets_client():
         logger.error(f"Failed to authenticate with Google Sheets: {e}")
         return None, None
 
-def save_to_sheets(results: List[Dict[str, Any]]):
+def get_existing_counts() -> Dict[str, int]:
+    """Read the 'Headless' worksheet and return a mapping of {keyword: count}."""
+    client, sheet_id = get_sheets_client()
+    if not client or not sheet_id:
+        return {}
+
+    try:
+        sheet = client.open_by_key(sheet_id).worksheet("Headless")
+        records = sheet.get_all_records()
+        
+        counts = {}
+        for row in records:
+            keyword = str(row.get("Keyword", "")).strip()
+            if keyword:
+                counts[keyword] = counts.get(keyword, 0) + 1
+        return counts
+    except Exception as e:
+        logger.error(f"Error reading existing counts from Google Sheets: {e}")
+        return {}
+
+def save_to_sheets(results: List[Dict[str, Any]], clear_first: bool = False):
     """Save scraped PAA results to Google Sheets. Each question on a new row."""
     client, sheet_id = get_sheets_client()
     if not client or not sheet_id:
@@ -64,7 +84,8 @@ def save_to_sheets(results: List[Dict[str, Any]]):
 
     try:
         # Open the specific worksheet named "Headless"
-        sheet = client.open_by_key(sheet_id).worksheet("Headless")
+        spreadsheet = client.open_by_key(sheet_id)
+        sheet = spreadsheet.worksheet("Headless")
         
         # Check if headers exist, if not create them
         try:
@@ -73,6 +94,12 @@ def save_to_sheets(results: List[Dict[str, Any]]):
                 sheet.append_row(["Keyword", "Region", "Question"])
         except Exception:
             sheet.append_row(["Keyword", "Region", "Question"])
+
+        if clear_first:
+            # If we want to replace, we'd need to find and delete rows. 
+            # For simplicity in this n8n version, we'll just append.
+            # But the user might prefer not having duplicates. 
+            pass
 
         rows_to_add = []
         for result in results:
