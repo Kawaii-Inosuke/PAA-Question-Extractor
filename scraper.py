@@ -83,6 +83,12 @@ def _clean_question(text: str) -> str | None:
     if not text:
         return None
 
+    # STRICT: PAA questions ALWAYS contain a question mark.
+    # Reject any text without '?' immediately — this filters out
+    # headings, snippets, and other non-question content.
+    if "?" not in text:
+        return None
+
     lower = text.lower()
 
     # --- PHASE 1: Reject obvious junk before any processing ---
@@ -167,10 +173,6 @@ def _clean_question(text: str) -> str | None:
         if len(q) >= 15 and len(q) <= 200:
             return q
 
-    # Final attempt: if it's a reasonable length and looks like a question
-    if 20 <= len(text) <= 150 and not any(j in lower for j in ["search", "results", "feedback"]):
-         return text.strip()
-
     return None
 
 
@@ -190,43 +192,82 @@ def _is_non_paa_question(text_lower: str) -> bool:
 
 
 def _extract_paa_questions(driver) -> list[str]:
-    """Extract all visible PAA question texts from the page."""
+    """Extract all visible PAA question texts from the page, scoped to the PAA section only."""
     questions = set()
 
-    for selector in PAA_QUESTION_SELECTORS:
+    # First, locate the PAA container(s) on the page
+    paa_container_selectors = [
+        'div[jsname="yEVEwb"]',           # Common PAA wrapper
+        'div[data-initq]',                 # PAA section with initial query
+        'div.related-question-pair',       # Direct PAA question pairs
+        'div[jsname="Cpkphb"]',            # PAA accordion items
+    ]
+
+    paa_containers = []
+    for sel in paa_container_selectors:
         try:
-            elements = driver.find_elements(By.CSS_SELECTOR, selector)
-            for el in elements:
-                try:
-                    if not el.is_displayed():
-                        continue
-                    text = el.get_attribute("textContent").strip()
-                    if not text:
-                        continue
-                    
-                    cleaned = _clean_question(text)
-                    if cleaned:
-                        questions.add(cleaned)
-                    else:
-                        if len(text) > 20: # Log potentially missed questions
-                            logger.debug(f"      Rejected text: {text[:50]}...")
-                except Exception:
-                    continue
+            found = driver.find_elements(By.CSS_SELECTOR, sel)
+            if found:
+                paa_containers.extend(found)
         except Exception:
             continue
 
-    if not questions:
-        # Fallback: try finding all buttons in the PAA area
+    if not paa_containers:
+        # Broader fallback: look for the "People also ask" heading and get its parent
         try:
-            # Look for elements that look like accordion headers
-            headers = driver.find_elements(By.CSS_SELECTOR, 'div[role="button"][aria-expanded]')
-            for h in headers:
-                text = h.get_attribute("textContent").strip()
-                cleaned = _clean_question(text)
-                if cleaned:
-                    questions.add(cleaned)
+            paa_headings = driver.find_elements(By.XPATH,
+                '//*[contains(translate(text(),"PEOPLE ALSO ASK","people also ask"),"people also ask")]'
+            )
+            for heading in paa_headings:
+                try:
+                    parent = heading.find_element(By.XPATH, './ancestor::div[contains(@class,"block") or contains(@class,"related") or @jsname]')
+                    if parent:
+                        paa_containers.append(parent)
+                except Exception:
+                    continue
         except Exception:
             pass
+
+    if not paa_containers:
+        logger.debug("  No PAA container found on page.")
+        return list(questions)
+
+    # Now extract questions ONLY from within PAA containers
+    for container in paa_containers:
+        for selector in PAA_QUESTION_SELECTORS:
+            try:
+                elements = container.find_elements(By.CSS_SELECTOR, selector)
+                for el in elements:
+                    try:
+                        if not el.is_displayed():
+                            continue
+                        text = el.get_attribute("textContent").strip()
+                        if not text:
+                            continue
+
+                        cleaned = _clean_question(text)
+                        if cleaned:
+                            questions.add(cleaned)
+                        else:
+                            if len(text) > 20:
+                                logger.debug(f"      Rejected text: {text[:50]}...")
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
+    if not questions:
+        # Fallback: try finding accordion buttons within PAA containers
+        for container in paa_containers:
+            try:
+                headers = container.find_elements(By.CSS_SELECTOR, 'div[role="button"][aria-expanded]')
+                for h in headers:
+                    text = h.get_attribute("textContent").strip()
+                    cleaned = _clean_question(text)
+                    if cleaned:
+                        questions.add(cleaned)
+            except Exception:
+                pass
 
     return list(questions)
 
@@ -359,54 +400,68 @@ def _scrape_paa_with_driver(driver, keyword: str, region: str = "us", google_url
         # Extra wait for PAA to settle
         _random_delay(2.0, 4.0)
 
-        # Recursive PAA expansion loop
+        # STEP 1: Extract the initial top 4 visible PAA questions BEFORE any clicking
         all_questions = []
         already_clicked = set()
-        max_rounds = 15
-        no_new_count = 0
 
-        for round_num in range(max_rounds):
-            logger.info(f"  Round {round_num + 1}: extracting questions...")
-            try:
-                driver.title
-            except Exception:
-                logger.warning("  Browser closed unexpectedly, returning what we have.")
-                break
+        logger.info("  Step 1: Extracting initial visible PAA questions (top 4)...")
+        initial_questions = _extract_paa_questions(driver)
+        for q in initial_questions:
+            if q not in all_questions:
+                all_questions.append(q)
+        logger.info(f"  Captured {len(all_questions)} initial PAA questions: {all_questions}")
 
-            current_questions = _extract_paa_questions(driver)
-            new_count = 0
-            for q in current_questions:
-                if q not in all_questions:
-                    all_questions.append(q)
-                    new_count += 1
+        # STEP 2: If we already have 8+, we're done
+        if len(all_questions) >= 8:
+            logger.info(f"  Already have 8+ questions from initial extraction, done.")
+        else:
+            # STEP 3: Expand PAA accordion items and extract more questions
+            max_rounds = 15
+            no_new_count = 0
 
-            logger.info(f"  Found {new_count} new questions (total: {len(all_questions)})")
-
-            if len(all_questions) >= 8:
-                logger.info(f"  Reached 8+ questions, stopping.")
-                break
-
-            # Try clicking to expand more PAA items
-            try:
-                clicks = _find_and_click_paa(driver, already_clicked)
-            except Exception as e:
-                logger.warning(f"  Click error: {e}")
-                clicks = 0
-
-            if clicks == 0 and new_count == 0:
-                no_new_count += 1
-                if no_new_count >= 3:
-                    logger.info(f"  No new questions found for 3 rounds, stopping.")
-                    break
+            for round_num in range(max_rounds):
+                logger.info(f"  Expand round {round_num + 1}: clicking to reveal more questions...")
                 try:
-                    _smooth_scroll(driver, random.randint(300, 600))
-                    _random_delay(1.5, 3.0)
+                    driver.title
                 except Exception:
+                    logger.warning("  Browser closed unexpectedly, returning what we have.")
                     break
-            else:
-                no_new_count = 0
 
-            _random_delay(1.0, 2.0)
+                # Click to expand more PAA items FIRST
+                try:
+                    clicks = _find_and_click_paa(driver, already_clicked)
+                except Exception as e:
+                    logger.warning(f"  Click error: {e}")
+                    clicks = 0
+
+                # Then extract any new questions that appeared
+                current_questions = _extract_paa_questions(driver)
+                new_count = 0
+                for q in current_questions:
+                    if q not in all_questions:
+                        all_questions.append(q)
+                        new_count += 1
+
+                logger.info(f"  Found {new_count} new questions after expanding (total: {len(all_questions)})")
+
+                if len(all_questions) >= 8:
+                    logger.info(f"  Reached 8+ questions, stopping.")
+                    break
+
+                if clicks == 0 and new_count == 0:
+                    no_new_count += 1
+                    if no_new_count >= 3:
+                        logger.info(f"  No new questions found for 3 rounds, stopping.")
+                        break
+                    try:
+                        _smooth_scroll(driver, random.randint(300, 600))
+                        _random_delay(1.5, 3.0)
+                    except Exception:
+                        break
+                else:
+                    no_new_count = 0
+
+                _random_delay(1.0, 2.0)
 
         return {
             "keyword": keyword,
@@ -452,7 +507,8 @@ def _scrape_paa_sync(keyword: str, region: str = "us") -> dict:
         driver = uc.Chrome(
             options=options,
             user_data_dir=user_data_dir,
-            use_subprocess=False
+            use_subprocess=False,
+            version_main=146
         )
         logger.info("  ✅ Chrome driver started successfully.")
         
@@ -551,7 +607,7 @@ def scrape_batch_sync(keywords: list[str], region: str = "us", callback=None) ->
     driver = None
     try:
         logger.info(f"  Attempting to start Chrome driver (headless={headless})...")
-        driver = uc.Chrome(options=options, user_data_dir=user_data_dir, use_subprocess=False)
+        driver = uc.Chrome(options=options, user_data_dir=user_data_dir, use_subprocess=False, version_main=146)
         logger.info("  ✅ Chrome driver started successfully.")
         
         if not headless:
