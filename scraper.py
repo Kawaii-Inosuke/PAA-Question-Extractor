@@ -27,7 +27,7 @@ REGION_CONFIG = {
     "us": {
         "google_url": "https://www.google.com",
     },
-    "india": {
+    "in": {
         "google_url": "https://www.google.co.in",
     },
 }
@@ -336,7 +336,7 @@ def _find_and_click_paa(driver, already_clicked: set) -> int:
     return clicks
 
 
-def _scrape_paa_with_driver(driver, keyword: str, region: str = "us", google_url: str = "https://www.google.com") -> dict:
+def _scrape_paa_with_driver(driver, keyword: str, region: str = "us", google_url: str = "https://www.google.com", target: int = 8) -> dict:
     """
     Extract PAA questions for a single keyword using an already running driver.
     """
@@ -404,16 +404,16 @@ def _scrape_paa_with_driver(driver, keyword: str, region: str = "us", google_url
         all_questions = []
         already_clicked = set()
 
-        logger.info("  Step 1: Extracting initial visible PAA questions (top 4)...")
+        logger.info(f"  Step 1: Extracting initial visible PAA questions (target={target})...")
         initial_questions = _extract_paa_questions(driver)
         for q in initial_questions:
             if q not in all_questions:
                 all_questions.append(q)
         logger.info(f"  Captured {len(all_questions)} initial PAA questions: {all_questions}")
 
-        # STEP 2: If we already have 8+, we're done
-        if len(all_questions) >= 8:
-            logger.info(f"  Already have 8+ questions from initial extraction, done.")
+        # STEP 2: If we already have enough, we're done
+        if len(all_questions) >= target:
+            logger.info(f"  Already have {target}+ questions from initial extraction, done.")
         else:
             # STEP 3: Expand PAA accordion items and extract more questions
             max_rounds = 15
@@ -444,8 +444,8 @@ def _scrape_paa_with_driver(driver, keyword: str, region: str = "us", google_url
 
                 logger.info(f"  Found {new_count} new questions after expanding (total: {len(all_questions)})")
 
-                if len(all_questions) >= 8:
-                    logger.info(f"  Reached 8+ questions, stopping.")
+                if len(all_questions) >= target:
+                    logger.info(f"  Reached {target}+ questions, stopping.")
                     break
 
                 if clicks == 0 and new_count == 0:
@@ -466,15 +466,15 @@ def _scrape_paa_with_driver(driver, keyword: str, region: str = "us", google_url
         return {
             "keyword": keyword,
             "region": region,
-            "questions": all_questions[:8],
-            "count": min(len(all_questions), 8),
+            "questions": all_questions[:target],
+            "count": min(len(all_questions), target),
         }
     except Exception as e:
         logger.error(f"Error scraping PAA for '{keyword}': {e}")
         return {"keyword": keyword, "region": region, "error": str(e)}
 
 
-def _scrape_paa_sync(keyword: str, region: str = "us") -> dict:
+def _scrape_paa_sync(keyword: str, region: str = "us", target: int = 8) -> dict:
     """
     Synchronous PAA scraper using undetected-chromedriver.
     """
@@ -555,8 +555,8 @@ def _scrape_paa_sync(keyword: str, region: str = "us") -> dict:
                 return {"keyword": keyword, "region": region, "error": "CAPTCHA not solved in time. Please try again."}
 
         # Perform extraction
-        result = _scrape_paa_with_driver(driver, keyword, region, config["google_url"])
-        
+        result = _scrape_paa_with_driver(driver, keyword, region, config["google_url"], target=target)
+
         try:
             driver.quit()
         except:
@@ -573,7 +573,7 @@ def _scrape_paa_sync(keyword: str, region: str = "us") -> dict:
         return {"keyword": keyword, "region": region, "error": str(e)}
 
 
-def scrape_batch_sync(keywords: list[str], region: str = "us", callback=None) -> list[dict]:
+def scrape_batch_sync(keywords: list[str], region: str = "us", callback=None, targets: dict[str, int] | None = None) -> list[dict]:
     """
     Scrape multiple keywords in a single browser session.
     Optional callback(result_dict) is called after each keyword.
@@ -650,7 +650,8 @@ def scrape_batch_sync(keywords: list[str], region: str = "us", callback=None) ->
                     logger.error("  ❌ CAPTCHA not solved, skipping remaining keywords.")
                     break
 
-            result = _scrape_paa_with_driver(driver, keyword, region, config["google_url"])
+            kw_target = (targets or {}).get(keyword, 8)
+            result = _scrape_paa_with_driver(driver, keyword, region, config["google_url"], target=kw_target)
             results.append(result)
             
             if callback:
@@ -678,15 +679,15 @@ def scrape_batch_sync(keywords: list[str], region: str = "us", callback=None) ->
     return results
 
 
-async def scrape_multiple(keywords: list[str], region: str = "us") -> list[dict]:
+async def scrape_multiple(keywords: list[str], region: str = "us", targets: dict[str, int] | None = None) -> list[dict]:
     """
     Scrape PAA questions for multiple keywords using the batch logic (single browser session).
     """
-    return await asyncio.to_thread(scrape_batch_sync, keywords, region)
+    return await asyncio.to_thread(scrape_batch_sync, keywords, region, None, targets)
 
 
-async def scrape_multiple_with_callback(keywords: list[str], region: str, callback) -> list[dict]:
+async def scrape_multiple_with_callback(keywords: list[str], region: str, callback, targets: dict[str, int] | None = None) -> list[dict]:
     """
     Async wrapper for batch scraping with a callback.
     """
-    return await asyncio.to_thread(scrape_batch_sync, keywords, region, callback)
+    return await asyncio.to_thread(scrape_batch_sync, keywords, region, callback, targets)

@@ -32,28 +32,55 @@ app.add_middleware(
 )
 
 
-class PAARequest(BaseModel):
-    keywords: str
+class KeywordItem(BaseModel):
+    keyword: str
     region: str = "us"
-
-    @field_validator("keywords")
-    @classmethod
-    def keywords_not_empty(cls, v):
-        if not v or not v.strip():
-            raise ValueError("Keywords cannot be empty")
-        return v.strip()
+    kw_type: str = "Primary"
 
     @field_validator("region")
     @classmethod
     def region_valid(cls, v):
         v = v.lower().strip()
-        if v == "in":
-            v = "india"
-        elif v == "usa":
-            v = "us"
-            
-        if v not in ("us", "india"):
-            raise ValueError("Region must be 'us', 'usa', 'india', or 'in'")
+        if v in ("usa", "us"):
+            return "us"
+        if v in ("in", "india"):
+            return "in"
+        raise ValueError("Region must be 'us' or 'in'")
+
+    @field_validator("kw_type")
+    @classmethod
+    def kw_type_valid(cls, v):
+        v = v.strip().capitalize()
+        if v not in ("Primary", "Secondary"):
+            raise ValueError("kw_type must be 'Primary' or 'Secondary'")
+        return v
+
+    @property
+    def target(self) -> int:
+        return 8 if self.kw_type == "Primary" else 4
+
+
+class PAARequest(BaseModel):
+    keywords: str | list[KeywordItem]
+    region: str = "us"
+    kw_type: str = "Primary"
+
+    @field_validator("region")
+    @classmethod
+    def region_valid(cls, v):
+        v = v.lower().strip()
+        if v in ("usa", "us"):
+            return "us"
+        if v in ("in", "india"):
+            return "in"
+        raise ValueError("Region must be 'us' or 'in'")
+
+    @field_validator("kw_type")
+    @classmethod
+    def kw_type_valid(cls, v):
+        v = v.strip().capitalize()
+        if v not in ("Primary", "Secondary"):
+            raise ValueError("kw_type must be 'Primary' or 'Secondary'")
         return v
 
 
@@ -67,31 +94,42 @@ async def health():
 async def extract_paa(request: PAARequest):
     """
     Extract PAA questions for one or more keywords.
-    Reuses browser session for batches and targets 8 questions each.
+    Reuses browser session for batches.
+    Primary keywords → 8 questions, Secondary → 4 questions.
     """
-    keyword_list = [k.strip() for k in request.keywords.split(",") if k.strip()]
+    # Build keyword list and per-keyword targets
+    if isinstance(request.keywords, list):
+        # Structured input: list of KeywordItem objects
+        items = request.keywords
+        keyword_list = [item.keyword.strip() for item in items if item.keyword.strip()]
+        targets = {item.keyword.strip(): item.target for item in items if item.keyword.strip()}
+        region = items[0].region if items else request.region
+    else:
+        # Simple string input: apply top-level region and kw_type to all
+        keyword_list = [k.strip() for k in request.keywords.split(",") if k.strip()]
+        target = 8 if request.kw_type == "Primary" else 4
+        targets = {k: target for k in keyword_list}
+        region = request.region
 
     if not keyword_list:
         raise HTTPException(status_code=400, detail="No valid keywords provided")
 
-    logger.info(f"Received request: {len(keyword_list)} keywords, region={request.region}")
-    logger.info("Target: 8 questions per keyword (Session-only tracking).")
+    logger.info(f"Received request: {len(keyword_list)} keywords, region={region}")
+    logger.info(f"Targets: {targets}")
 
     try:
         # Define callback for incremental saving to Google Sheets
         def incremental_save(result):
             if result.get("questions"):
-                # We save one result at a time incrementally
                 save_to_sheets([result])
                 logger.info(f"Incrementally saved '{result['keyword']}' to Google Sheets.")
 
-        # Scrape with callback, targeting 8 (handled inside scraper.py)
-        results = await scrape_multiple_with_callback(keyword_list, request.region, incremental_save)
-        
+        results = await scrape_multiple_with_callback(keyword_list, region, incremental_save, targets=targets)
+
         return {
             "results": results,
             "processed_count": len(results),
-            "target": 8
+            "targets": targets
         }
     except Exception as e:
         logger.error(f"Scraping failed: {e}")

@@ -9,6 +9,7 @@
     const form = document.getElementById('paaForm');
     const keywordsInput = document.getElementById('keywords');
     const regionSelect = document.getElementById('region');
+    const kwTypeSelect = document.getElementById('kwType');
     const submitBtn = document.getElementById('submitBtn');
     const btnText = submitBtn.querySelector('.btn-text');
     const btnLoading = submitBtn.querySelector('.btn-loading');
@@ -26,6 +27,7 @@
 
         const keywords = keywordsInput.value.trim();
         const region = regionSelect.value;
+        const kw_type = kwTypeSelect.value;
 
         if (!keywords) return;
 
@@ -37,7 +39,7 @@
             const response = await fetch('/api/paa', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ keywords, region }),
+                body: JSON.stringify({ keywords, region, kw_type }),
             });
 
             if (!response.ok) {
